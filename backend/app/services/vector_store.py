@@ -90,6 +90,8 @@ def query_similar_papers(
 
 def compute_cosine_similarity(vec_a: list[float], vec_b: list[float]) -> float:
     """Compute cosine similarity between two vectors."""
+    if vec_a is None or vec_b is None or len(vec_a) == 0 or len(vec_b) == 0 or len(vec_a) != len(vec_b):
+        return 0.0
     import numpy as np
     a = np.array(vec_a)
     b = np.array(vec_b)

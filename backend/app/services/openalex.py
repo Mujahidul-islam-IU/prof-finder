@@ -1,6 +1,6 @@
 """
 ProfFinder — OpenAlex API Client
-Secondary academic database. Completely free, no API key needed.
+Primary academic database. Completely free, no API key needed.
 Docs: https://docs.openalex.org/
 """
 
@@ -42,7 +42,7 @@ async def search_authors(
                 institutions = author.get("last_known_institutions", [])
                 inst_name = institutions[0].get("display_name", "") if institutions else ""
                 inst_country = institutions[0].get("country_code", "") if institutions else ""
-                openalex_id = author.get("id", "").replace("https://openalex.org/", "")
+                openalex_id = (author.get("id") or "").replace("https://openalex.org/", "")
 
                 normalized.append({
                     "openalex_id": openalex_id,
@@ -62,18 +62,104 @@ async def search_authors(
             return []
 
 
+async def search_works(
+    query: str,
+    institution_country: str | None = None,
+    year_from: int = 2020,
+    limit: int = 15,
+) -> list[dict]:
+    """
+    Paper-first search: find papers matching keywords, optionally filtered by
+    country of the authors' institutions. Returns papers with author info.
+    """
+    async with httpx.AsyncClient(timeout=TIMEOUT, headers=HEADERS) as client:
+        try:
+            filters = [f"publication_year:>{year_from - 1}"]
+            if institution_country:
+                filters.append(
+                    f"authorships.institutions.country_code:{institution_country}"
+                )
+
+            params = {
+                "search": query,
+                "per_page": limit,
+                "filter": ",".join(filters),
+                # "sort": "cited_by_count:desc", # Removed to allow relevance sorting
+                "select": (
+                    "id,title,publication_year,primary_location,"
+                    "authorships,abstract_inverted_index,cited_by_count"
+                ),
+            }
+
+            resp = await client.get(f"{BASE_URL}/works", params=params)
+            resp.raise_for_status()
+            data = resp.json()
+            results = data.get("results", [])
+
+            normalized = []
+            for work in results:
+                abstract = _reconstruct_abstract(
+                    work.get("abstract_inverted_index")
+                )
+                venue = ""
+                primary_loc = work.get("primary_location", {})
+                if primary_loc and primary_loc.get("source"):
+                    venue = primary_loc["source"].get("display_name", "")
+
+                # Extract all authors with their institutions
+                authors_info = []
+                for authorship in work.get("authorships", []):
+                    author = authorship.get("author", {})
+                    institutions = authorship.get("institutions", [])
+                    inst = institutions[0] if institutions else {}
+                    author_id = (
+                        (author.get("id") or "").replace("https://openalex.org/", "")
+                    )
+                    authors_info.append({
+                        "openalex_id": author_id,
+                        "name": author.get("display_name", ""),
+                        "institution": inst.get("display_name", ""),
+                        "institution_country": inst.get("country_code", ""),
+                        "institution_id": (
+                            (inst.get("id") or "").replace("https://openalex.org/", "")
+                        ),
+                    })
+
+                openalex_id = (work.get("id") or "").replace(
+                    "https://openalex.org/", ""
+                )
+                normalized.append({
+                    "openalex_id": openalex_id,
+                    "title": work.get("title", ""),
+                    "abstract": abstract,
+                    "year": work.get("publication_year"),
+                    "venue": venue,
+                    "cited_by_count": work.get("cited_by_count", 0),
+                    "authors": authors_info,
+                })
+            return normalized
+        except (httpx.HTTPStatusError, httpx.RequestError) as e:
+            print(f"[OpenAlex] Works search error: {e}")
+            return []
+
+
 async def get_author_works(
     author_id: str,
     limit: int = 10,
-    year_from: int = 2022,
+    year_from: int = 2020,
 ) -> list[dict]:
     """Get recent works for an author by OpenAlex ID."""
     async with httpx.AsyncClient(timeout=TIMEOUT, headers=HEADERS) as client:
         try:
-            # Remove URL prefix if present
-            clean_id = author_id.replace("https://openalex.org/", "")
+            # Ensure we have the full URL format for the filter
+            if not author_id.startswith("https://openalex.org/"):
+                full_id = f"https://openalex.org/{author_id}"
+            else:
+                full_id = author_id
+                author_id = full_id.replace("https://openalex.org/", "")
+
             params = {
-                "filter": f"authorships.author.id:{clean_id},publication_year:>{year_from - 1}",
+                "filter": f"authorships.author.id:{full_id},publication_year:>{year_from - 1}",
                 "per_page": limit,
                 "sort": "publication_date:desc",
                 "select": "id,title,publication_year,primary_location,authorships,abstract_inverted_index",
@@ -92,7 +178,7 @@ async def get_author_works(
                 if primary_loc and primary_loc.get("source"):
                     venue = primary_loc["source"].get("display_name", "")
 
-                openalex_id = work.get("id", "").replace("https://openalex.org/", "")
+                openalex_id = (work.get("id") or "").replace("https://openalex.org/", "")
                 normalized.append({
                     "openalex_id": openalex_id,
                     "title": work.get("title", ""),

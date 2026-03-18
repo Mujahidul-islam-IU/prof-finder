@@ -168,7 +168,7 @@ class ProfessorProfile(BaseModel):
 class ProgramRequirements(BaseModel):
     """Admission requirements for a program."""
     university: str
-    program_name: str = ""
+    program_name: Optional[str] = None
     degree_type: Optional[DegreeType] = None
     deadline_fall: Optional[date] = None
     deadline_spring: Optional[date] = None
@@ -178,7 +178,7 @@ class ProgramRequirements(BaseModel):
     ielts_min_score: Optional[float] = None
     wes_required: Optional[bool] = None
     application_fee_usd: Optional[int] = None
-    source_url: str = ""
+    source_url: Optional[str] = None
     confidence: float = 0.0
     deadline_warning: bool = False  # True if within 45 days
 

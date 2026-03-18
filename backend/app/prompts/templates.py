@@ -236,7 +236,7 @@ GUIDELINES:
 2. Include technical methods (e.g., "transformer models", "scRNA-seq", "CRISPR") mentioned in the student's background.
 3. Generate queries that would work well in academic databases like OpenAlex or Semantic Scholar.
 4. If user-provided keywords are present, prioritize including them in the generated queries.
-5. Queries should be 2-4 words long.
+5. Queries should be 2-3 words long and focused on identifying specific researchers and their active research areas.
 
 Return a JSON object:
 {{

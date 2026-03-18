@@ -1,7 +1,7 @@
 """
 ProfFinder — A4: Deep Profiler + Scorer Agent
-Parallel profiling of up to 30 professors via asyncio.gather with Semaphore(10).
-Fetches papers, embeds, computes cosine similarity, extracts lab page info.
+Parallel profiling of up to 30 professors via asyncio.gather with Semaphore(5).
+Dual-API: tries OpenAlex first, then Semantic Scholar. Never silently drops.
 """
 
 import json
@@ -22,6 +22,86 @@ from app.models.schemas import (
 from app.prompts.templates import LAB_PAGE_EXTRACTION_PROMPT
 
 
+def _build_ngrams(text: str, n: int = 2) -> set[str]:
+    """Build n-grams from text for phrase-level matching."""
+    words = text.lower().split()
+    ngrams = set()
+    # Single words
+    ngrams.update(words)
+    # 2-grams and 3-grams
+    for i in range(len(words) - 1):
+        ngrams.add(f"{words[i]} {words[i+1]}")
+    if n >= 3:
+        for i in range(len(words) - 2):
+            ngrams.add(f"{words[i]} {words[i+1]} {words[i+2]}")
+    return ngrams
+
+
+async def _fetch_papers_dual_api(
+    candidate: ProfessorCandidate,
+    max_papers: int,
+) -> list[dict]:
+    """
+    Try both APIs to get papers. OpenAlex first (free, no rate limit),
+    then Semantic Scholar as fallback.
+    """
+    papers_raw = []
+
+    # ── Try 1: OpenAlex (primary, free) ──────────────────
+    if candidate.openalex_id:
+        try:
+            papers_raw = await openalex.get_author_works(
+                candidate.openalex_id,
+                limit=max_papers,
+                year_from=2020,
+            )
+            if papers_raw:
+                print(f"[A4]   OpenAlex returned {len(papers_raw)} papers for {candidate.name}")
+                return papers_raw
+            else:
+                print(f"[A4]   OpenAlex returned 0 papers for {candidate.name} (ID: {candidate.openalex_id})")
+        except Exception as e:
+            print(f"[A4]   OpenAlex error for {candidate.name}: {e}")
+
+    # ── Try 2: Semantic Scholar (backup, rate-limited) ───
+    if candidate.semantic_scholar_id:
+        try:
+            papers_raw = await semantic_scholar.get_author_papers(
+                candidate.semantic_scholar_id,
+                limit=max_papers,
+                year_from=2020,
+            )
+            if papers_raw:
+                print(f"[A4]   SemanticScholar returned {len(papers_raw)} papers for {candidate.name}")
+                return papers_raw
+            else:
+                print(f"[A4]   SemanticScholar returned 0 papers for {candidate.name}")
+        except Exception as e:
+            print(f"[A4]   SemanticScholar error for {candidate.name}: {e}")
+
+    # ── Try 3: Search by name on OpenAlex (last resort) ──
+    if not papers_raw:
+        try:
+            works = await openalex.search_works(
+                query=candidate.name,
+                year_from=2020,
+                limit=max_papers,
+            )
+            # Filter to only include papers where this author appears
+            name_lower = candidate.name.lower()
+            for w in works:
+                for a in w.get("authors", []):
+                    if a.get("name", "").lower() == name_lower:
+                        papers_raw.append(w)
+                        break
+            if papers_raw:
+                print(f"[A4]   Name-search found {len(papers_raw)} papers for {candidate.name}")
+        except Exception as e:
+            print(f"[A4]   Name-search error for {candidate.name}: {e}")
+
+    return papers_raw
+
+
 async def _profile_single_professor(
     candidate: ProfessorCandidate,
     student_embedding: list[float],
@@ -33,23 +113,10 @@ async def _profile_single_professor(
     """Profile a single professor: fetch papers, embed, score, extract lab page."""
     async with semaphore:
         try:
-            # ── Fetch papers ─────────────────────────────
-            papers_raw = []
-            if candidate.semantic_scholar_id:
-                papers_raw = await semantic_scholar.get_author_papers(
-                    candidate.semantic_scholar_id,
-                    limit=settings.max_papers_per_professor,
-                    year_from=2022,
-                )
-            elif candidate.openalex_id:
-                papers_raw = await openalex.get_author_works(
-                    candidate.openalex_id,
-                    limit=settings.max_papers_per_professor,
-                    year_from=2022,
-                )
+            print(f"[A4] Profiling: {candidate.name} ({candidate.university})")
 
-            if not papers_raw:
-                return None  # Skip professors with no recent papers
+            # ── Fetch papers via dual-API ────────────────
+            papers_raw = await _fetch_papers_dual_api(candidate, settings.max_papers_per_professor)
 
             # ── Build PaperInfo objects ──────────────────
             papers = []
@@ -69,8 +136,21 @@ async def _profile_single_professor(
                 ))
                 paper_texts.append(f"{title}. {abstract}")
 
+            # ── If no papers at all, create a basic profile ──
             if not papers:
-                return None
+                print(f"[A4]   No papers found for {candidate.name} — creating basic profile")
+                return ProfessorProfile(
+                    name=candidate.name,
+                    university=candidate.university,
+                    department=candidate.department,
+                    country=candidate.country,
+                    semantic_scholar_id=candidate.semantic_scholar_id,
+                    openalex_id=candidate.openalex_id,
+                    match_score=0,
+                    result_tier=ResultTier.TRY_YOUR_LUCK,
+                    top_matched_papers=[],
+                    all_papers=[],
+                )
 
             # ── Embed papers ─────────────────────────────
             paper_embeddings = await embed_texts(paper_texts)
@@ -91,11 +171,11 @@ async def _profile_single_professor(
             for i, paper in enumerate(sorted_papers[:3]):
                 paper.is_top_match = True
 
-            # ── Keyword overlap score ────────────────────
+            # ── Keyword overlap (phrase-level) ───────────
             prof_keywords = set()
             for paper in papers:
-                words = (paper.title + " " + paper.abstract).lower().split()
-                prof_keywords.update(words)
+                combined = f"{paper.title} {paper.abstract}"
+                prof_keywords.update(_build_ngrams(combined, n=3))
             overlap = len(student_keywords & prof_keywords) / max(len(student_keywords), 1)
             keyword_score = min(overlap * 100, 100)
 
@@ -139,6 +219,8 @@ async def _profile_single_professor(
             else:
                 result_tier = ResultTier.TRY_YOUR_LUCK
 
+            print(f"[A4]   {candidate.name}: score={match_score}, tier={result_tier.value}, papers={len(papers)}, cosine_avg={avg_top3:.3f}")
+
             # ── Lab page extraction ──────────────────────
             email = None
             email_source = None
@@ -177,7 +259,10 @@ async def _profile_single_professor(
 
                     email = extracted.get("email")
                     if extracted.get("email_source"):
-                        email_source = EmailSource(extracted["email_source"])
+                        try:
+                            email_source = EmailSource(extracted["email_source"])
+                        except ValueError:
+                            email_source = None
                     email_confidence = float(extracted.get("email_confidence", 0))
 
                     if extracted.get("funding_status") == "funded":
@@ -191,12 +276,12 @@ async def _profile_single_professor(
                     funding_source_url = extracted.get("funding_source_url")
                     lab_page_fetched_at = datetime.now(timezone.utc)
             except Exception as e:
-                print(f"[A4] Lab page error for {candidate.name}: {e}")
+                print(f"[A4]   Lab page error for {candidate.name}: {e}")
 
             # ── Store paper embeddings in ChromaDB ───────
             try:
                 paper_ids = [
-                    f"paper_{candidate.semantic_scholar_id or candidate.openalex_id}_{i}"
+                    f"paper_{candidate.openalex_id or candidate.semantic_scholar_id}_{i}"
                     for i in range(len(papers))
                 ]
                 paper_metas = [
@@ -205,7 +290,7 @@ async def _profile_single_professor(
                 ]
                 store_paper_vectors(paper_ids, paper_embeddings, paper_metas, paper_texts)
             except Exception as e:
-                print(f"[A4] ChromaDB store error: {e}")
+                print(f"[A4]   ChromaDB store error: {e}")
 
             # ── Build ProfessorProfile ───────────────────
             return ProfessorProfile(
@@ -231,7 +316,19 @@ async def _profile_single_professor(
             )
         except Exception as e:
             print(f"[A4] Error profiling {candidate.name}: {e}")
-            return None
+            # Never silently drop — return a basic profile
+            return ProfessorProfile(
+                name=candidate.name,
+                university=candidate.university,
+                department=candidate.department,
+                country=candidate.country,
+                semantic_scholar_id=candidate.semantic_scholar_id,
+                openalex_id=candidate.openalex_id,
+                match_score=0,
+                result_tier=ResultTier.TRY_YOUR_LUCK,
+                top_matched_papers=[],
+                all_papers=[],
+            )
 
 
 async def deep_profiler(state: SearchState) -> SearchState:
@@ -240,14 +337,22 @@ async def deep_profiler(state: SearchState) -> SearchState:
 
     """
     A4 — Deep Profiler + Scorer Agent.
-    Runs PARALLEL via asyncio.gather with Semaphore(10) for all candidates.
+    Runs PARALLEL via asyncio.gather with Semaphore(5) for all candidates.
     """
-    if not state.professor_candidates or not state.student_profile:
-        state.errors.append("A4: No professor candidates or student profile")
+    if not state.professor_candidates:
+        print("[A4] No professor candidates to profile")
+        state.errors.append("A4: No professor candidates found")
+        await state.emit_status("A4", "No professor candidates found. Try different search parameters.", "0/0")
+        return state
+
+    if not state.student_profile:
+        print("[A4] No student profile available")
+        state.errors.append("A4: No student profile")
+        await state.emit_status("A4", "Error: Student profile missing.", "0/0")
         return state
 
     settings = get_settings()
-    semaphore = asyncio.Semaphore(settings.max_concurrent_profilers)
+    semaphore = asyncio.Semaphore(5)  # Reduced from 10 to avoid rate limits
 
     await state.emit_status(
         "A4",
@@ -261,14 +366,14 @@ async def deep_profiler(state: SearchState) -> SearchState:
         ids=[state.student_profile.vector_id],
         include=["embeddings", "documents"],
     )
-    
+
     # Use explicit checks to avoid "ambiguous array" error with NumPy arrays
     embeddings = student_data.get("embeddings")
     documents = student_data.get("documents")
-    
+
     student_embedding = embeddings[0] if (embeddings is not None and len(embeddings) > 0) else []
     student_doc = documents[0] if (documents is not None and len(documents) > 0) else ""
-    student_keywords = set(student_doc.lower().split())
+    student_keywords = _build_ngrams(student_doc, n=3)
 
     student_tier = state.student_profile.tier.value if state.student_profile.tier else "B"
 
@@ -300,6 +405,17 @@ async def deep_profiler(state: SearchState) -> SearchState:
             )
         elif isinstance(result, Exception):
             print(f"[A4] Exception for candidate {i}: {result}")
+            # Create fallback profile
+            candidate = state.professor_candidates[i]
+            fallback = ProfessorProfile(
+                name=candidate.name,
+                university=candidate.university,
+                department=candidate.department,
+                country=candidate.country,
+                match_score=0,
+                result_tier=ResultTier.TRY_YOUR_LUCK,
+            )
+            profiles.append(fallback)
 
     # Sort by match score descending
     profiles.sort(key=lambda p: p.match_score, reverse=True)
@@ -309,7 +425,10 @@ async def deep_profiler(state: SearchState) -> SearchState:
         f"Profiling complete. {len(profiles)} professors scored.",
         f"{len(profiles)}/{len(state.professor_candidates)}",
     )
-    await state.emit_agent_output("A4", {"profile_count": len(profiles), "top_score": profiles[0].match_score if profiles else 0})
+
+    top_score = profiles[0].match_score if profiles else 0
+    print(f"[A4] Final: {len(profiles)} profiles, top score: {top_score}")
+    await state.emit_agent_output("A4", {"profile_count": len(profiles), "top_score": top_score})
 
     state.professor_profiles = profiles
     return state

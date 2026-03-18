@@ -58,7 +58,7 @@ async def search_lab_page(professor_name: str, university: str) -> list[dict]:
     return await search(
         query=query,
         max_results=3,
-        include_domains=[".edu", ".ac.uk", ".ca", ".de", ".au"],
+        # No domain filter — professors are at universities worldwide
     )
 
 
