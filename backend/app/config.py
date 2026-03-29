@@ -41,16 +41,15 @@ class Settings(BaseSettings):
     ttl_admission_requirements: int = 90
     deadline_warning_days: int = 45
 
-    # ── Match Score Weights ─────────────────────────────
-    weight_semantic: float = 0.50
-    weight_keyword: float = 0.20
-    weight_tier_fit: float = 0.15
-    weight_recency: float = 0.15
+    # ── Match Score Weights (v2: LLM-dominated) ──────────
+    weight_llm_overall: float = 0.60     # LLM multi-dimensional reasoning score
+    weight_semantic: float = 0.25        # Embedding cosine similarity (supplementary)
+    weight_recency: float = 0.15         # Paper recency
     high_relevance_threshold: float = 0.72
 
     # ── Tier Thresholds ─────────────────────────────────
-    tier_high_chance: int = 70
-    tier_good_chance: int = 45
+    tier_high_chance: int = 75
+    tier_good_chance: int = 50
 
     # ── App ─────────────────────────────────────────────
     debug: bool = False

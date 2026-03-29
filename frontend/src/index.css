@@ -457,6 +457,155 @@ input::placeholder, textarea::placeholder {
   50% { opacity: 0.7; }
 }
 
+/* ── Multi-Score Bars (Bio/ML Fit) ─ */
+.multi-score-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.mini-score-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mini-score-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  width: 24px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.mini-score-bar {
+  flex: 1;
+  height: 5px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+  overflow: hidden;
+  min-width: 60px;
+}
+.mini-score-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.6s ease;
+}
+.mini-score-fill.bio {
+  background: linear-gradient(90deg, #10b981, #34d399);
+}
+.mini-score-fill.ml {
+  background: linear-gradient(90deg, #6366f1, #818cf8);
+}
+.mini-score-value {
+  font-size: 0.72rem;
+  font-weight: 700;
+  min-width: 30px;
+  text-align: right;
+}
+.bio-color { color: #34d399; }
+.ml-color { color: #818cf8; }
+
+/* ── Research Tags ─────────────── */
+.research-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.research-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.research-tag.tag-green {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+.research-tag.tag-purple {
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+}
+.research-tag.tag-blue {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+.research-tag.tag-amber {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+.research-tag.tag-cyan {
+  background: rgba(6, 182, 212, 0.15);
+  color: #22d3ee;
+}
+
+/* ── Match Insight (Expandable) ──── */
+.match-insight-wrapper {
+  margin-top: 8px;
+}
+.match-insight-toggle {
+  background: none;
+  border: none;
+  color: var(--accent-blue);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 0;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+.match-insight-toggle:hover {
+  opacity: 1;
+}
+.match-insight-content {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.match-reasoning-card {
+  background: rgba(16, 185, 129, 0.06);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.match-reasoning-header {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--accent-green);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+.match-reasoning-card p {
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0;
+}
+.match-warning-card {
+  background: rgba(245, 158, 11, 0.06);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.match-warning-header {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--accent-amber);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+.match-warning-card p {
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  font-style: italic;
+  margin: 0;
+}
+
 /* ── Mail Drafter Modal ─────────── */
 .modal-overlay {
   position: fixed;

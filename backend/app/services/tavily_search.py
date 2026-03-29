@@ -81,6 +81,36 @@ async def search_program_requirements(
     return await search(query=query, max_results=5)
 
 
+async def search_professors_web(
+    field: str,
+    methods: list[str],
+    country: str,
+    degree_type: str = "MSc",
+) -> list[dict]:
+    """Search the web for professors in a specific field+country, like a student would.
+    
+    This is the 'Claude strategy' — searching for labs and faculty pages
+    rather than individual papers.
+    """
+    # Build a query that mimics what a real student would search
+    method_str = " ".join(methods[:3]) if methods else field
+    queries = [
+        f"{field} professor {country} research lab {method_str}",
+        f"{method_str} computational biology professor {country} accepting {degree_type} students",
+    ]
+    
+    all_results = []
+    for q in queries:
+        results = await search(
+            query=q,
+            max_results=5,
+            search_depth="basic",
+        )
+        all_results.extend(results)
+    
+    return all_results
+
+
 async def search_country_info(country: str, field: str) -> list[dict]:
     """Search for country-specific study abroad information."""
     query = (

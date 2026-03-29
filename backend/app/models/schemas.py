@@ -156,6 +156,12 @@ class ProfessorProfile(BaseModel):
     semantic_scholar_id: str = ""
     openalex_id: str = ""
     match_score: int = 0
+    bio_fit_score: int = 0
+    ml_fit_score: int = 0
+    research_tags: list[str] = []
+    match_reasoning: str = ""
+    match_warning: str = ""
+    province_or_state: str = ""
     result_tier: Optional[ResultTier] = None
     top_matched_papers: list[PaperInfo] = []
     all_papers: list[PaperInfo] = []

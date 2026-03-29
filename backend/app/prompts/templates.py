@@ -223,7 +223,7 @@ Return JSON:
 # A3 — KEYWORD GENERATION
 # ═══════════════════════════════════════════════════════════════
 
-KEYWORD_GENERATION_PROMPT = """You are an expert academic research scout. Your goal is to generate 5-6 highly specific, niche search keywords to find professors who would be a perfect match for a student.
+KEYWORD_GENERATION_PROMPT = """You are an expert academic research scout helping a student find their perfect professor match. Generate two types of search queries.
 
 STUDENT INFO:
 - Research interests: {research_interests}
@@ -231,15 +231,113 @@ STUDENT INFO:
 - Target field: {target_field}
 - User-provided custom keywords: {additional_keywords}
 
-GUIDELINES:
-1. Combine terms to create specific research niches (e.g., "machine learning for single-cell genomics" instead of just "Bioinformatics").
-2. Include technical methods (e.g., "transformer models", "scRNA-seq", "CRISPR") mentioned in the student's background.
-3. Generate queries that would work well in academic databases like OpenAlex or Semantic Scholar.
-4. If user-provided keywords are present, prioritize including them in the generated queries.
-5. Queries should be 2-3 words long and focused on identifying specific researchers and their active research areas.
+GENERATE TWO TYPES OF QUERIES:
+
+1. **web_queries** (5-6 queries): Natural language queries a real student would type into Google to find professors. Be VERY specific — combine methods + disease/domain + "professor" or "lab".
+   Examples:
+   - "single-cell RNA sequencing cancer biomarkers professor lab"
+   - "computational biology WGCNA gene co-expression research group"
+   - "machine learning drug discovery molecular docking professor"
+
+2. **academic_queries** (5-6 queries): Structured queries for academic paper databases. 4-7 words, combining specific methods with specific biological domains.
+   Examples:
+   - "single-cell RNA sequencing intellectual disability biomarkers"
+   - "WGCNA kidney cancer staging machine learning"
+   - "protein-protein interaction network neurodevelopmental disorders"
+
+RULES:
+- Queries MUST be 4-7 words long and highly specific to the student's niche
+- Include the student's SPECIFIC methods (e.g., Seurat, WGCNA, molecular docking) not generic terms
+- Include SPECIFIC diseases/domains from their publications, not broad fields
+- If user-provided keywords are present, prioritize them
+- DO NOT generate generic queries like "bioinformatics" or "machine learning"
 
 Return a JSON object:
 {{
-  "search_queries": ["query1", "query2", "query3", "query4", "query5", "query6"]
+  "web_queries": ["query1", "query2", "query3", "query4", "query5"],
+  "academic_queries": ["query1", "query2", "query3", "query4", "query5"]
+}}
+"""
+
+
+# ═══════════════════════════════════════════════════════════════
+# A4 — PROFESSOR MATCH SCORING (LLM Multi-Dimensional)
+# ═══════════════════════════════════════════════════════════════
+
+PROFESSOR_MATCH_SCORING_PROMPT = """You are an expert graduate school advisor. Score how well this professor matches this prospective student for a {degree_type} program.
+
+STUDENT PROFILE:
+- Name: {student_name}
+- Research interests: {research_interests}
+- Publications: {publications}
+- Skills/Methods: {skills}
+- Target field: {target_field}
+- Thesis/Research: {thesis_summary}
+
+PROFESSOR:
+- Name: {professor_name}
+- University: {university}, {country}
+- Department: {department}
+- Recent paper titles and abstracts:
+{paper_titles_and_abstracts}
+- Lab page summary: {lab_page_summary}
+
+Score on these dimensions (0-100 each):
+1. **bio_fit**: How much do their BIOLOGICAL research topics overlap? Consider: diseases studied, cell types, organisms, biological questions.
+2. **ml_fit**: How much do their COMPUTATIONAL methods/tools overlap? Consider: programming languages, bioinformatics tools (Seurat, WGCNA, etc.), ML frameworks, analysis pipelines.
+3. **overall**: Overall match considering research topic + methods + career fit for a {degree_type} student.
+
+SCORING GUIDELINES:
+- 90-100: Nearly identical research niche. The student could start contributing to the lab immediately.
+- 75-89: Strong overlap in either biology or methods, with good overlap in the other.
+- 60-74: Moderate overlap. The student would need some ramp-up but has relevant transferable skills.
+- 40-59: Weak overlap. Only broadly related field.
+- 0-39: Minimal or no meaningful connection.
+
+Return JSON:
+{{
+  "bio_fit": 0-100,
+  "ml_fit": 0-100,
+  "overall": 0-100,
+  "research_tags": ["tag1", "tag2", "tag3", "tag4"],
+  "match_reasoning": "2-3 sentences explaining WHY this is a match. Be SPECIFIC — mention exact papers, tools, or topics that overlap. Do not be generic.",
+  "match_warning": "1 sentence caveat about potential misalignment, or null if none"
+}}
+"""
+
+
+# ═══════════════════════════════════════════════════════════════
+# A3 — PROFESSOR EXTRACTION FROM WEB SEARCH
+# ═══════════════════════════════════════════════════════════════
+
+PROFESSOR_EXTRACTION_PROMPT = """You are extracting professor names and affiliations from web search results. The goal is to find individual professors/researchers who work in the specified field.
+
+TARGET FIELD: {target_field}
+COUNTRY: {country}
+
+WEB SEARCH RESULTS:
+{search_results}
+
+Extract all individual professors/researchers mentioned. For each, provide:
+- name: Full name (e.g., "Jiarui Ding", "Tallulah Andrews")
+- university: Their university or institution
+- department: Their department if mentioned
+
+RULES:
+- ONLY extract names of individual researchers, NOT organizations, consortiums, or groups
+- ONLY extract researchers who appear to work in or near the target field
+- If a name appears multiple times, include it only once
+- Skip names where you're unsure if they are a professor/PI
+- Maximum 10 professors per extraction
+
+Return JSON:
+{{
+  "professors": [
+    {{
+      "name": "Full Name",
+      "university": "University Name",
+      "department": "Department if known, empty string otherwise"
+    }}
+  ]
 }}
 """
