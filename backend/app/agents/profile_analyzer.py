@@ -42,7 +42,12 @@ async def profile_analyzer(state: SearchState) -> SearchState:
     await state.emit_status("A1", "Parsing your CV...", "1/5")
 
     # ── Step 1: Parse CV ─────────────────────────────────
-    profile = await parse_cv(state.cv_file_path)
+    try:
+        profile = await parse_cv(state.cv_file_path)
+    except Exception as e:
+        error_msg = f"CV Parsing failed: {str(e)}"
+        await state.emit_status("A1", f"Error: {error_msg}", "1/5")
+        raise e  # Re-raise to let the graph wrapper handle it
 
     # ── Step 2: Merge user-provided data ─────────────────
     if state.search_request:

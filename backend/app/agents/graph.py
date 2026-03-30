@@ -34,7 +34,7 @@ def _wrap_agent(agent_fn, agent_name: str):
             try:
                 await state.emit_status(
                     agent_name,
-                    f"Warning: {agent_name} encountered an error, continuing with partial data...",
+                    f"Warning: {agent_name} failed. Error: {str(e)}",
                     "",
                 )
             except Exception:

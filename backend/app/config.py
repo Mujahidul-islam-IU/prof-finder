@@ -58,6 +58,7 @@ class Settings(BaseSettings):
     debug: bool = False
     cors_origins: list[str] = [
         "https://prof-finder.vercel.app",
+        "https://prof-finder.vercel.app/",
         "http://localhost:5173",
         "http://localhost:3000"
     ]

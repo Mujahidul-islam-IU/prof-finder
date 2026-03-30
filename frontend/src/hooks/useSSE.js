@@ -62,11 +62,11 @@ export function useSSE(token) {
 
             try {
               const event = JSON.parse(jsonStr);
+              console.log("[SSE EVENT]", event);
 
               switch (event.event_type) {
                 case 'professor_result':
                   setProfessors(prev => {
-                    // Deduplicate by name+university
                     const key = `${event.professor.name}-${event.professor.university}`;
                     const exists = prev.some(
                       p => `${p.name}-${p.university}` === key
@@ -105,10 +105,7 @@ export function useSSE(token) {
         }
       }
 
-      // Stream ended
-      if (!isComplete) {
-        setIsSearching(false);
-      }
+      setIsSearching(false);
     } catch (err) {
       setError(err.message);
       setIsSearching(false);
@@ -116,9 +113,6 @@ export function useSSE(token) {
   }, [token]);
 
   const cancelSearch = useCallback(() => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-    }
     setIsSearching(false);
   }, []);
 
