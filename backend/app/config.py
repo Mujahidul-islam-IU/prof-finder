@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     # ── Limits (Hard Constraints) ───────────────────────
     max_professors_per_session: int = 30
     max_papers_per_professor: int = 10
-    max_concurrent_profilers: int = 10  # asyncio.Semaphore cap
+    max_concurrent_profilers: int = 4  # Lowered for Render Free Tier stability
 
     # ── TTL (days) ──────────────────────────────────────
     ttl_professor_papers: int = 30
