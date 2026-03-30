@@ -5,6 +5,7 @@ Writes verified data to Supabase. Streams each verified professor via SSE.
 """
 
 import json
+import httpx
 from datetime import datetime, timezone, date, timedelta
 from app.config import get_settings
 from app.services.llm import generate_json
