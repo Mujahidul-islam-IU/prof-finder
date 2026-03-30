@@ -8,7 +8,7 @@ import uuid
 import asyncio
 import json
 from datetime import datetime
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks, Depends
 from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 from app.config import get_settings
@@ -20,6 +20,8 @@ from app.agents.state import SearchState
 from app.agents.graph import search_pipeline
 from app.agents.mail_drafter import draft_cold_email
 from app.services import supabase_client
+from app.api.auth import get_current_user, get_admin_user
+import hashlib
 
 router = APIRouter(prefix="/api", tags=["ProfFinder"])
 
@@ -34,12 +36,23 @@ async def start_search(
     is_international: bool = Form(True),
     ielts_score: float = Form(None),
     gre_score: int = Form(None),
+    token: str = Form(None),  # Accept token from form or query since EventSource/Fetch is used
 ):
     """
     Start a professor search. Returns an SSE stream of results.
     The search pipeline runs all 5 agents sequentially, streaming results.
     """
     settings = get_settings()
+
+    # Authenticate via token
+    if not token:
+        raise HTTPException(status_code=401, detail="Authentication token required")
+    try:
+        current_user = await get_current_user(token)
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = current_user.get("sub")
 
     # ── Save uploaded CV ─────────────────────────────────
     os.makedirs(settings.upload_dir, exist_ok=True)
@@ -50,6 +63,9 @@ async def start_search(
     content = await cv_file.read()
     with open(file_path, "wb") as f:
         f.write(content)
+
+    # ── Hash CV for caching ──────────────────────────────
+    cv_md5 = hashlib.md5(content).hexdigest()
 
     # ── Parse countries ──────────────────────────────────
     countries = [c.strip() for c in target_countries.split(",") if c.strip()]
@@ -97,6 +113,7 @@ async def start_search(
                     tier="B",  # Will be updated by A1
                     gpa_normalized=None,
                     vector_id=None,
+                    user_id=user_id,
                 )
                 session_id = session.get("session_id", "")
             except Exception as e:
@@ -107,6 +124,7 @@ async def start_search(
             state = SearchState(
                 search_request=search_request,
                 cv_file_path=file_path,
+                cv_hash=cv_md5,
                 session_id=session_id,
                 sse_queue=sse_queue,
             )
@@ -183,6 +201,39 @@ async def start_search(
     return EventSourceResponse(event_generator())
 
 
+@router.get("/sessions")
+async def get_sessions(current_user: dict = Depends(get_current_user)):
+    """Get all past search sessions for the logged in user."""
+    user_id = current_user.get("sub")
+    sessions = supabase_client.get_user_sessions(user_id)
+    return {"sessions": sessions}
+
+
+# ── Admin-Only Session Endpoints ─────────────────────────
+
+@router.get("/admin/sessions/{user_id}")
+async def get_user_sessions_admin(user_id: str, admin_user: dict = Depends(get_admin_user)):
+    """Admin only: get all sessions for a specific user."""
+    sessions = supabase_client.get_user_sessions(user_id)
+    return {"sessions": sessions}
+
+
+@router.get("/admin/sessions")
+async def get_all_sessions_admin(admin_user: dict = Depends(get_admin_user)):
+    """Admin only: get all sessions across all users."""
+    try:
+        db = supabase_client.get_supabase()
+        result = (
+            db.table("search_sessions")
+            .select("*, professors(*)")
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return {"sessions": result.data or []}
+    except Exception as e:
+        return {"sessions": [], "error": str(e)}
+
+
 @router.post("/draft-email", response_model=MailDraftResponse)
 async def draft_email(request: MailDraftRequest):
     """
@@ -205,3 +256,4 @@ async def health_check():
         "timestamp": datetime.now().isoformat(),
         "service": "ProfFinder API",
     }
+

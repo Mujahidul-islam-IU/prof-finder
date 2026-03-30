@@ -49,6 +49,7 @@ def create_session(
     tier: str,
     gpa_normalized: Optional[float],
     vector_id: Optional[str],
+    user_id: Optional[str] = None,
 ) -> dict:
     """Create a new search session record."""
     db = get_supabase()
@@ -60,9 +61,50 @@ def create_session(
         "tier": tier,
         "gpa_normalized": gpa_normalized,
         "vector_id": vector_id,
+        "user_id": user_id,
     }
     result = db.table("search_sessions").insert(data).execute()
     return result.data[0] if result.data else {}
+
+def get_user_sessions(user_id: str) -> list[dict]:
+    """Get all past search sessions for a user."""
+    db = get_supabase()
+    result = (
+        db.table("search_sessions")
+        .select("*, professors(*)")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return result.data or []
+
+
+# ── CV Caching ───────────────────────────────────────────────
+
+def get_cached_cv(cv_hash: str) -> Optional[dict]:
+    """Check if a CV was already deeply profiled."""
+    try:
+        db = get_supabase()
+        result = db.table("cv_cache").select("*").eq("cv_hash", cv_hash).execute()
+        if result.data:
+            return result.data[0].get("student_profile")
+    except Exception as e:
+        print(f"[Supabase] get_cached_cv error: {e}")
+    return None
+
+def save_cached_cv(cv_hash: str, profile: dict) -> dict:
+    """Save a parsed CV profile to cache."""
+    try:
+        db = get_supabase()
+        data = {
+            "cv_hash": cv_hash,
+            "student_profile": profile,
+        }
+        result = db.table("cv_cache").upsert(data).execute()
+        return result.data[0] if result.data else {}
+    except Exception as e:
+        print(f"[Supabase] save_cached_cv error: {e}")
+        return {}
 
 
 # ── Professors ───────────────────────────────────────────────

@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     # ── Tavily ──────────────────────────────────────────
     tavily_api_key: str = ""
 
+    # ── Hunter.io ───────────────────────────────────────
+    hunter_api_key: str = ""
+
     # ── Supabase ────────────────────────────────────────
     supabase_url: str = ""
     supabase_anon_key: str = ""

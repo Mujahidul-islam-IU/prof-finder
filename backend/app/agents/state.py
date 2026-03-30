@@ -24,6 +24,7 @@ class SearchState(BaseModel):
     # ── Inputs ───────────────────────────────────────────
     search_request: Optional[SearchRequest] = None
     cv_file_path: str = ""
+    cv_hash: str = ""
     session_id: str = ""
 
     # ── A1 Output ────────────────────────────────────────

@@ -33,6 +33,7 @@ class ResultTier(str, Enum):
 class EmailSource(str, Enum):
     SCRAPED = "scraped_direct"
     INFERRED = "inferred"
+    HUNTER_VERIFIED = "hunter_verified"
 
 
 class FundingStatus(str, Enum):
@@ -145,6 +146,7 @@ class ProfessorProfile(BaseModel):
     email: Optional[str] = None
     email_source: Optional[EmailSource] = None
     email_confidence: float = 0.0
+    email_hunter_status: Optional[str] = None
     university: str
     department: str = ""
     country: str
@@ -232,3 +234,35 @@ class MailDraftResponse(BaseModel):
     word_count: int
     professor_name: str
     referenced_papers: list[str]
+
+
+# ── Auth & Users ─────────────────────────────────────────────
+
+class UserCreate(BaseModel):
+    email: str
+    password: str
+    name: str
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user_id: str
+    name: str
+    role: str = "user"
+
+class UserOut(BaseModel):
+    id: str
+    email: str
+    name: str
+    role: str
+
+class UserUpdateAdmin(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    role: Optional[str] = None
+    password: Optional[str] = None
+

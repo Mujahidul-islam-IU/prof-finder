@@ -256,6 +256,45 @@ export default function ProfessorTable({ professors, requirements, onDraftEmail 
   const goodCount = professors.filter(p => p.result_tier === 'Good Chance').length;
   const tryCount = professors.filter(p => p.result_tier === 'Try Your Luck').length;
 
+  // ── CSV Export ────────────────────────────────────────
+  const exportCSV = () => {
+    const headers = [
+      'Name', 'Email', 'Email Confidence', 'University', 'Department', 'Country',
+      'Match Score', 'Bio Fit', 'ML Fit', 'Tier', 'Funding Status',
+      'Lab Page URL', 'Lab Verified', 'Top Papers', 'Research Tags'
+    ];
+    
+    const rows = professors.map(p => [
+      p.name,
+      p.email || '',
+      p.email_confidence || 0,
+      p.university,
+      p.department || '',
+      p.country,
+      p.match_score || 0,
+      p.bio_fit_score || 0,
+      p.ml_fit_score || 0,
+      p.result_tier || '',
+      p.funding_status || 'unknown',
+      p.lab_page_url || '',
+      p.lab_page_verified ? 'Yes' : 'No',
+      (p.top_matched_papers || []).filter(pp => pp.is_top_match).map(pp => `${pp.title} (${pp.year || 'N/A'})`).join(' | '),
+      (p.research_tags || []).join(', ')
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `proffinder_results_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
   return (
     <div className="results-section fade-in">
       <div className="results-header">
@@ -287,15 +326,20 @@ export default function ProfessorTable({ professors, requirements, onDraftEmail 
         </div>
       </div>
 
-      {/* Search filter */}
-      <input
-        type="text"
-        value={globalFilter}
-        onChange={(e) => setGlobalFilter(e.target.value)}
-        placeholder="🔍 Filter results by name, university, country..."
-        style={{ marginBottom: '16px', maxWidth: '400px' }}
-        id="results-filter"
-      />
+      {/* Search filter + Export */}
+      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
+        <input
+          type="text"
+          value={globalFilter}
+          onChange={(e) => setGlobalFilter(e.target.value)}
+          placeholder="🔍 Filter results by name, university, country..."
+          style={{ flex: 1, minWidth: '250px', maxWidth: '400px' }}
+          id="results-filter"
+        />
+        <button className="btn btn-sm btn-export" onClick={exportCSV}>
+          📥 Export CSV
+        </button>
+      </div>
 
       {/* Table */}
       <div className="card" style={{ padding: 0, overflow: 'auto' }}>

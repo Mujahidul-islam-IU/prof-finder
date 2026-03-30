@@ -11,8 +11,9 @@ from app.agents.state import SearchState
 from app.services.cv_parser import parse_cv
 from app.services.embedding import embed_text
 from app.services.vector_store import store_student_vector
-from app.services import semantic_scholar
+from app.services import semantic_scholar, supabase_client
 from app.prompts.templates import TIER_CLASSIFICATION_PROMPT
+from app.models.schemas import StudentProfile
 
 
 async def profile_analyzer(state: SearchState) -> SearchState:
@@ -27,6 +28,17 @@ async def profile_analyzer(state: SearchState) -> SearchState:
     4. Embed student profile in ChromaDB
     5. Classify tier (A/B/C)
     """
+    # ── Step 0: Check Cache ──────────────────────────────
+    cv_hash = getattr(state, "cv_hash", None)
+    if cv_hash:
+        cached_profile_dict = supabase_client.get_cached_cv(cv_hash)
+        if cached_profile_dict:
+            await state.emit_status("A1", "Loaded your CV from cache instantly ⚡", "1/1")
+            profile = StudentProfile.model_validate(cached_profile_dict)
+            state.student_profile = profile
+            await state.emit_agent_output("A1", {"cached": True, "profile": profile.model_dump(mode='json')})
+            return state
+
     await state.emit_status("A1", "Parsing your CV...", "1/5")
 
     # ── Step 1: Parse CV ─────────────────────────────────
@@ -118,6 +130,13 @@ async def profile_analyzer(state: SearchState) -> SearchState:
 
     await state.emit_status("A1", f"Profile analysis complete. Tier: {profile.tier.value}", "5/5")
     await state.emit_agent_output("A1", profile.model_dump(mode='json'))
+
+    # Save to cache
+    if cv_hash:
+        try:
+            supabase_client.save_cached_cv(cv_hash, profile.model_dump(mode='json'))
+        except Exception as e:
+            print(f"[A1] Failed to cache CV: {e}")
 
     state.student_profile = profile
     return state

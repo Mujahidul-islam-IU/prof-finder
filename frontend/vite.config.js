@@ -12,4 +12,6 @@ export default defineConfig({
       },
     },
   },
+  // Ensure /admin route is handled by the SPA (index.html)
+  appType: 'spa',
 })

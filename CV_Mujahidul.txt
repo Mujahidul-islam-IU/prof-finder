@@ -1,0 +1,80 @@
+Kh Mujahidul Islam 
++8801705259966    mujahid.iu.cse@gmail.com     ResearchGate      LinkedIn       GitHub      
+
+Education 
+Bachelor of Science (B.Sc.)                                                                                                                                                                    Feb  2025 
+Department of Computer Science and Engineering,                                                                                                                CGPA: 3.27 / 4 
+Faculty of Engineering and Technology, Islamic University, Bangladesh.                                                          Total Credit hours: 160  
+
+Research Experience 
+Research Assistant     Jan 2023 – Present 
+CABAIR (Center for Advanced Bioinformatics and AI Research), Islamic University, Bangladesh.                           Website 
+Single cell RNA sequencing project: – Conducted single-cell RNA sequencing (scRNA-seq) analysis using Seurat (PCA, UMAP for dimensionality reduction 
+and clustering). – Built protein–protein interaction (PPI) networks to explore gene interactions and performed ROC analysis for 
+biomarker diagnostic evaluation. – Conducted survival analysis for key biomarkers and performed molecular docking of hub genes to identify potential 
+therapeutic targets. 
+WGCNA Project: – Applied WGCNA on TCGA datasets to identify co-expression modules and develop machine learning-based staging 
+models. – Used Lasso regression for feature selection and validated model performance with classification metrics. – Identified potential biomarkers for Kidney Renal Clear Cell Carcinoma (KIRC), integrating bioinformatics and ML approaches 
+for translational research. 
+Supervised by: Dr. Md Habibur Rahman                                                                        (email: habib@iu.ac.bd ) 
+
+Professional  Experience 
+Intern Engineer - AI Agent Development                                                                                                                                  Jul 2025 – Present 
+Next Solution Lab, Mirpur DOHS, Dhaka. – Contributed to the development of prototype AI agents and conversational pipelines with LangChain, LangGraph, 
+Llama, 
+and Ollama, enabling automated data retrieval and improved user engagement. – Implemented model training and fine-tuning workflows; prepared datasets and evaluation scripts to measure 
+model behaviour. – Packaged prototypes as lightweight services (Flask/Streamlit) for internal demonstration and stakeholder review. – Documented integration points and created demo notebooks to accelerate handover to engineering teams 
+
+Notable Publications 
+KM Islam, MH Rahman, MA Hossain, M Khan, MM Rahman, PS Apu, MI Hasan, SA Ansari, & M Humayoo.        May 2025 
+Identification of cell-specific biomarkers for intellectual disability via single-cell RNA sequencing and  
+transcriptomic bioinformatics approaches.    Scientific Reports.DOI:10.1038/s41598-025-85162-4 (IF:3.9) 
+
+MM Rahman, MH Rahman, MA Hossain, KM Islam, PS Apu, M Khan, MG Kibria, SA Ansari, & M Humayoo.     May 2025                  
+Uncovering dendritic cell-specific biomarkers for diagnosis and prognosis of cardiomyopathy using single-cell 
+RNA sequencing and comprehensive bioinformatics analysis. Scientific Reports. 
+DOI:10.1038/s41598-024-78011-3 (IF:3.9)  
+
+MI Hasan, KM Islam, MN Hasan, MM Rahman, MH Rahman, S Moon, MN Park, HN Kang, & B Kim                .     Mar 2025 
+Exploring the therapeutic potential of Evodia rutaecarpa in early-onset pancreatic cancer: A network  
+pharmacology and molecular docking approach . Current Pharmaceutical Design.  
+DOI: 10.2174/0113816128356225250305081937(IF 2.8) 
+
+M Khan, MA Hossain, KM Islam, MM Rahman, PS Apu, IA Ansari, SA Ansari, & MH Rahman.                                Feb 2025 
+Integrative  analysis of single-cell and bulk RNA sequencing data reveals T-cell specific biomarkers for 
+diagnosis and assessment of celiac disease: A comprehensive bioinformatics approach. Current Bioinformatics. 
+DOI:10.2174/0115748936353313250123071744 (IF 2.9) 
+
+Technical Skills 
+Programming and scripting                Python (Biopython, Pandas, NumPy) ,R (Bioconductor, DESeq2, edgeR, Seurat), C++,  
+JavaScript,      
+                                                                        Bash/Linux,  Git.  
+Machine Learning / Deep Learning  Scikit-learn, Pandas, NumPy, Matplotlib, Seaborn, TensorFlow, Keras, PyTorch. 
+Dry Lab Skills                                            Microarray data analysis, scRNA sequencing data analysis, Weighted Gene Co-expression 
+                                                                        Network Analysis (WGCNA),Virtual Screening, Molecular Docking.     
+Tools and Software                                  Discovery Studio, PyMol, PyRx, AutoDock Vina, Cytoscape, DAVID,                
+                                                                        Network Analyst, BiocManager, Biopython, Mendeley, EndNote, LaTex 
+Databases                                                    PostgreSQL, NCBI, Ensembl, UniProt,  PDB, GEO, TCGA. 
+
+STANDARDIZED LANGUAGE TEST  
+International English Language Testing System (IELTS)  Academic                          TRF number: 25BD505875ISLK001A 
+
+Module Listening Reading Speaking Writing Overall 
+Band Score 8.0 7.0 6.5 6.0 6.0 
+
+References 
+1. Dr. Md Habibur Rahman    
+Associate Professor, 
+Department of Computer Science and Engineering, 
+Islamic University, Bangladesh.   
+            Email: habib@iu.ac.bd  
+2. Md. Ibrahim Abdullah 
+Professor, 
+Department of Computer Science and Engineering, 
+Islamic University, Bangladesh.   
+            Email: ibrahim@cse.iu.ac.bd 
+3. Dr. Md. Robiul Hoque 
+Professor, 
+Department of Computer Science and Engineering, 
+Islamic University, Bangladesh.  
+            Email: robiul@cse.iu.ac.bd 

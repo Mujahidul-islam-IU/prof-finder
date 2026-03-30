@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.api.routes import router
+from app.api.auth import router as auth_router
 
 
 def create_app() -> FastAPI:
@@ -28,6 +29,7 @@ def create_app() -> FastAPI:
 
     # ── Routes ───────────────────────────────────────────
     app.include_router(router)
+    app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 
     @app.on_event("startup")
     async def startup():

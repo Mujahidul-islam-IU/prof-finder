@@ -5,7 +5,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 
-export function useSSE() {
+export function useSSE(token) {
   const [professors, setProfessors] = useState([]);
   const [statuses, setStatuses] = useState([]);
   const [requirements, setRequirements] = useState({});
@@ -28,6 +28,10 @@ export function useSSE() {
     setCurrentAgent('A1');
 
     try {
+      if (token) {
+        formData.append('token', token);
+      }
+
       // POST the form data and get SSE stream
       const response = await fetch('/api/search', {
         method: 'POST',
@@ -108,7 +112,7 @@ export function useSSE() {
       setError(err.message);
       setIsSearching(false);
     }
-  }, []);
+  }, [token]);
 
   const cancelSearch = useCallback(() => {
     if (eventSourceRef.current) {

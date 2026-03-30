@@ -12,8 +12,9 @@ from app.config import get_settings
 from app.agents.state import SearchState
 from app.services import tavily_search, supabase_client
 from app.models.schemas import (
-    ProfessorProfile, ProgramRequirements, FundingStatus, DegreeType,
+    ProfessorProfile, ProgramRequirements, FundingStatus, DegreeType, EmailSource
 )
+from app.services.hunter_io import find_email, verify_email, extract_domain_from_url
 from app.prompts.templates import REQUIREMENTS_EXTRACTION_PROMPT
 
 
@@ -164,6 +165,9 @@ async def qc_verifier(state: SearchState) -> SearchState:
         state.errors.append("A5: No professor profiles to verify")
         return state
 
+    # Sort professors by match_score descending so top matches are first (for API limits)
+    state.professor_profiles.sort(key=lambda p: p.match_score, reverse=True)
+
     settings = get_settings()
     verified = []
     requirements_list = []
@@ -179,11 +183,41 @@ async def qc_verifier(state: SearchState) -> SearchState:
         if prof.lab_page_url:
             prof.lab_page_verified = await _verify_url(prof.lab_page_url)
 
-        # ── 2. Validate email domain ─────────────────────
-        if prof.email:
-            domain_valid = _validate_email_domain(prof.email, prof.university)
-            if not domain_valid and prof.email_source != "scraped_direct":
-                prof.email_confidence = min(prof.email_confidence, 0.3)
+        # ── 2. Validate email & Hunter.io (Top 2 only) ───
+        hunter_used = False
+        if i < 2:
+            if prof.email:
+                # Verifier
+                hunter_res = await verify_email(prof.email)
+                if hunter_res:
+                    hunter_used = True
+                    prof.email_hunter_status = hunter_res.get("status")
+                    if prof.email_hunter_status == "valid":
+                        prof.email_confidence = 1.0
+                        prof.email_source = EmailSource.HUNTER_VERIFIED
+                    elif prof.email_hunter_status == "invalid":
+                        prof.email_confidence = 0.1
+            else:
+                # Finder
+                domain = extract_domain_from_url(prof.lab_page_url)
+                if domain:
+                    parts = prof.name.split()
+                    first = parts[0]
+                    last = parts[-1] if len(parts) > 1 else ""
+                    hunter_res = await find_email(domain, first, last)
+                    if hunter_res and hunter_res.get("email"):
+                        hunter_used = True
+                        prof.email = hunter_res["email"]
+                        prof.email_source = EmailSource.HUNTER_VERIFIED
+                        prof.email_confidence = hunter_res.get("score", 50) / 100.0
+                        prof.email_hunter_status = "valid"
+
+        if not hunter_used:
+            # Fallback to standard validation
+            if prof.email:
+                domain_valid = _validate_email_domain(prof.email, prof.university)
+                if not domain_valid and prof.email_source != EmailSource.SCRAPED:
+                    prof.email_confidence = min(prof.email_confidence, 0.3)
 
         # ── 3. Funding audit ─────────────────────────────
         if prof.funding_status == FundingStatus.FUNDED and prof.funding_confidence < 0.8:
