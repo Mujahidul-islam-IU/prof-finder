@@ -14,4 +14,8 @@ export default defineConfig({
   },
   // Ensure /admin route is handled by the SPA (index.html)
   appType: 'spa',
+  // Expose env variables starting with VITE_ to the frontend
+  define: {
+    // Fallback: empty string means use relative URLs (for Vite proxy in dev)
+  },
 })

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import ProfessorTable from './ProfessorTable';
+import { apiUrl } from '../services/api';
 
 export default function Dashboard({ token }) {
   const [sessions, setSessions] = useState([]);
@@ -13,7 +14,7 @@ export default function Dashboard({ token }) {
 
   const fetchSessions = async () => {
     try {
-      const res = await fetch('/api/sessions', {
+      const res = await fetch(apiUrl('/api/sessions'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }

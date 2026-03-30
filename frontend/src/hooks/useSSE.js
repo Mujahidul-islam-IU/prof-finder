@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback, useRef } from 'react';
+import { apiUrl } from '../services/api';
 
 export function useSSE(token) {
   const [professors, setProfessors] = useState([]);
@@ -33,7 +34,7 @@ export function useSSE(token) {
       }
 
       // POST the form data and get SSE stream
-      const response = await fetch('/api/search', {
+      const response = await fetch(apiUrl('/api/search'), {
         method: 'POST',
         body: formData,
       });

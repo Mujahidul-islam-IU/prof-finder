@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { apiUrl } from '../services/api';
 
 export default function Auth({ onLoginSuccess, mode = 'user' }) {
   const isAdminMode = mode === 'admin';
@@ -15,7 +16,7 @@ export default function Auth({ onLoginSuccess, mode = 'user' }) {
     setLoading(true);
     setError(null);
 
-    const url = isLogin ? '/api/auth/login' : '/api/auth/register';
+    const url = apiUrl(isLogin ? '/api/auth/login' : '/api/auth/register');
     const body = isLogin 
       ? JSON.stringify({ email, password })
       : JSON.stringify({ email, password, name });

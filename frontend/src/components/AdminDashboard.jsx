@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import ProfessorTable from './ProfessorTable';
+import { apiUrl } from '../services/api';
 
 export default function AdminDashboard({ token }) {
   const [users, setUsers] = useState([]);
@@ -24,7 +25,7 @@ export default function AdminDashboard({ token }) {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('/api/auth/users', {
+      const res = await fetch(apiUrl('/api/auth/users'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) throw new Error('Failed to fetch users');
@@ -40,7 +41,7 @@ export default function AdminDashboard({ token }) {
   const fetchUserSessions = async (userId) => {
     setSessionsLoading(true);
     try {
-      const res = await fetch(`/api/admin/sessions/${userId}`, {
+      const res = await fetch(apiUrl(`/api/admin/sessions/${userId}`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) throw new Error('Failed to fetch user sessions');
@@ -56,7 +57,7 @@ export default function AdminDashboard({ token }) {
   const handleDelete = async (userId) => {
     if (!window.confirm("Are you sure you want to delete this user?")) return;
     try {
-      const res = await fetch(`/api/auth/users/${userId}`, {
+      const res = await fetch(apiUrl(`/api/auth/users/${userId}`), {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -75,7 +76,7 @@ export default function AdminDashboard({ token }) {
   const saveEdit = async (userId) => {
     setSaving(true);
     try {
-      const res = await fetch(`/api/auth/users/${userId}`, {
+      const res = await fetch(apiUrl(`/api/auth/users/${userId}`), {
         method: 'PUT',
         headers: { 
           'Authorization': `Bearer ${token}`,
