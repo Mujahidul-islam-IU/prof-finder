@@ -4,12 +4,12 @@ uvicorn[standard]>=0.34.0
 python-multipart>=0.0.18
 sse-starlette>=2.1.0
 
-# LangGraph / LangChain
-langgraph>=0.2.0
-langchain-openai>=0.2.0
-langchain-core>=0.3.0
+# LangGraph (Core Orchestration only)
+langgraph>=0.2.21
+langchain-core>=0.3.26
 
-# OpenAI
+# Re-deploying with optimized dependencies to fix timeout issues on Render Free Tier.
+# OpenAI SDK (Primary + Groq Fallback)
 openai>=1.50.0
 
 # Embedding & Vector Store
