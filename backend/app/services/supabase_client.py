@@ -16,12 +16,15 @@ from app.models.schemas import (
 _client: Client | None = None
 
 
+import os
+
 def get_supabase() -> Client:
     """Get or create the Supabase client."""
     global _client
     if _client is None:
         settings = get_settings()
-        _client = create_client(settings.supabase_url, settings.supabase_anon_key)
+        key = os.environ.get("SUPABASE_KEY", settings.supabase_anon_key)
+        _client = create_client(settings.supabase_url, key)
     return _client
 
 

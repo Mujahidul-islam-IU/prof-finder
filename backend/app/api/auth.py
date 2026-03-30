@@ -35,6 +35,17 @@ def init_db():
     if "role" not in columns:
         c.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'")
 
+    # Seed default admin
+    c.execute("SELECT * FROM users WHERE email='admin@proffinder.com'")
+    if not c.fetchone():
+        import bcrypt
+        import uuid
+        hashed = bcrypt.hashpw('admin'.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        c.execute("""
+            INSERT INTO users (id, email, name, password_hash, role)
+            VALUES (?, 'admin@proffinder.com', 'System Admin', ?, 'admin')
+        """, (str(uuid.uuid4()), hashed,))
+
     conn.commit()
     conn.close()
 
