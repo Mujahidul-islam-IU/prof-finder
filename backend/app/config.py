@@ -66,24 +66,28 @@ class Settings(BaseSettings):
 @lru_cache()
 def get_settings():
     settings = Settings()
-    # Explicit Fail-safe override for Render environment
-    if not settings.openai_api_key:
-        settings.openai_api_key = os.environ.get("OPENAI_API_KEY", "")
-    if not settings.tavily_api_key:
-        settings.tavily_api_key = os.environ.get("TAVILY_API_KEY", "")
-    if not settings.supabase_url:
-        settings.supabase_url = os.environ.get("SUPABASE_URL", "")
-    if not settings.supabase_anon_key:
-        # Check both possible keys used in the Render dashboard
-        settings.supabase_anon_key = os.environ.get("SUPABASE_ANON_KEY", os.environ.get("SUPABASE_KEY", ""))
-    if not settings.hunter_api_key:
-        settings.hunter_api_key = os.environ.get("HUNTER_API_KEY", "")
-    if not settings.jwt_secret or settings.jwt_secret == "local_super_secret_prof_finder_key":
-        settings.jwt_secret = os.environ.get("JWT_SECRET", settings.jwt_secret)
     
-    # Handle CORS origins list from comma-separated env var
+    # Fail-safe: manually check os.environ if Pydantic missed them (common on Render)
+    # This also handles the case where Render's env vars are uppercase
+    env_vars_mapping = {
+        "OPENAI_API_KEY": "openai_api_key",
+        "TAVILY_API_KEY": "tavily_api_key",
+        "SUPABASE_URL": "supabase_url",
+        "SUPABASE_ANON_KEY": "supabase_anon_key",
+        "SUPABASE_KEY": "supabase_anon_key",  # Alias
+        "HUNTER_API_KEY": "hunter_api_key",
+        "JWT_SECRET": "jwt_secret",
+    }
+    
+    for env_key, attr_name in env_vars_mapping.items():
+        val = os.environ.get(env_key)
+        if val:
+            setattr(settings, attr_name, val)
+    
+    # Specific fix for list-based CORS_ORIGINS from env var
     cors_env = os.environ.get("CORS_ORIGINS")
     if cors_env:
         settings.cors_origins = [o.strip() for o in cors_env.split(",") if o.strip()]
         
+    print(f"[CONFIG] Loaded keys: OpenAI={'Yes' if settings.openai_api_key else 'No'}, Supabase={'Yes' if settings.supabase_url else 'No'}")
     return settings
