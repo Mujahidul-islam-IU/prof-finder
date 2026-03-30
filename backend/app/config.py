@@ -3,11 +3,13 @@ ProfFinder — Application Settings
 Reads all configuration from environment variables via pydantic-settings.
 """
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
     # ── OpenAI ──────────────────────────────────────────
     openai_api_key: str = ""
     openai_reasoning_model: str = "gpt-4o"
