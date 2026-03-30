@@ -101,7 +101,7 @@ async def _fetch_requirements(
         university=university,
         department=department,
         degree_type=degree_type,
-        search_results=web_content[:4000]
+        web_content=web_content[:4000]
     )
 
     # Extract with GPT-4o-mini

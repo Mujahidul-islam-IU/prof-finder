@@ -106,3 +106,13 @@ CREATE TABLE IF NOT EXISTS country_rankings (
 );
 
 CREATE INDEX idx_rankings_session ON country_rankings(session_id);
+
+-- ── CV Cache (Intelligent caching for repeat searches) ──────
+CREATE TABLE IF NOT EXISTS cv_cache (
+    cv_hash         TEXT PRIMARY KEY,
+    parsed_profile  JSONB NOT NULL,
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    expires_at      TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '30 days')
+);
+
+CREATE INDEX idx_cv_cache_hash ON cv_cache(cv_hash);
