@@ -1,3 +1,9 @@
 {
-  "name": "prof-finder"
+  "name": "prof-finder",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }
