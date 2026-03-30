@@ -3,12 +3,18 @@ ProfFinder — Application Settings
 Reads all configuration from environment variables via pydantic-settings.
 """
 
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore", case_sensitive=False)
+
+    # ── App ─────────────────────────────────────────────
+    jwt_secret: str = "local_super_secret_prof_finder_key"
+    debug: bool = False
+    cors_origins: list[str] = ["https://prof-finder.vercel.app", "https://prof-finder.vercel.app/"]
 
     # ── OpenAI ──────────────────────────────────────────
     openai_api_key: str = ""
@@ -56,22 +62,28 @@ class Settings(BaseSettings):
     tier_high_chance: int = 75
     tier_good_chance: int = 50
 
-    # ── App ─────────────────────────────────────────────
-    debug: bool = False
-    cors_origins: list[str] = [
-        "https://prof-finder.vercel.app",
-        "https://prof-finder.vercel.app/",
-        "http://localhost:5173",
-        "http://localhost:3000"
-    ]
-
-    model_config = {
-        "env_file": ".env",
-        "env_file_encoding": "utf-8",
-        "case_sensitive": False,
-    }
-
 
 @lru_cache()
-def get_settings() -> Settings:
-    return Settings()
+def get_settings():
+    settings = Settings()
+    # Explicit Fail-safe override for Render environment
+    if not settings.openai_api_key:
+        settings.openai_api_key = os.environ.get("OPENAI_API_KEY", "")
+    if not settings.tavily_api_key:
+        settings.tavily_api_key = os.environ.get("TAVILY_API_KEY", "")
+    if not settings.supabase_url:
+        settings.supabase_url = os.environ.get("SUPABASE_URL", "")
+    if not settings.supabase_anon_key:
+        # Check both possible keys used in the Render dashboard
+        settings.supabase_anon_key = os.environ.get("SUPABASE_ANON_KEY", os.environ.get("SUPABASE_KEY", ""))
+    if not settings.hunter_api_key:
+        settings.hunter_api_key = os.environ.get("HUNTER_API_KEY", "")
+    if not settings.jwt_secret or settings.jwt_secret == "local_super_secret_prof_finder_key":
+        settings.jwt_secret = os.environ.get("JWT_SECRET", settings.jwt_secret)
+    
+    # Handle CORS origins list from comma-separated env var
+    cors_env = os.environ.get("CORS_ORIGINS")
+    if cors_env:
+        settings.cors_origins = [o.strip() for o in cors_env.split(",") if o.strip()]
+        
+    return settings
