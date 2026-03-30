@@ -97,6 +97,13 @@ async def _fetch_requirements(
     for r in search_results[:3]:
         web_content += f"Source: {r.get('url', '')}\n{r.get('content', '')}\n\n"
 
+    prompt = REQUIREMENTS_EXTRACTION_PROMPT.format(
+        university=university,
+        department=department,
+        degree_type=degree_type,
+        search_results=web_content[:4000]
+    )
+
     # Extract with GPT-4o-mini
     messages=[
         {"role": "system", "content": "Extract admission requirements precisely. Return valid JSON only."},
