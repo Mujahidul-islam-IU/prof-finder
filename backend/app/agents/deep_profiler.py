@@ -7,14 +7,13 @@ Parallel profiling of up to 30 professors via asyncio.gather with Semaphore(5).
 import json
 import asyncio
 from datetime import datetime, timezone
-from openai import AsyncOpenAI
-import httpx
 from app.config import get_settings
 from app.agents.state import SearchState
 from app.services import semantic_scholar, openalex
 from app.services.embedding import embed_text, embed_texts
-from app.services.vector_store import compute_cosine_similarity, store_paper_vectors, get_student_collection
+from app.services.vector_store import compute_cosine_similarity, store_paper_vectors
 from app.services import tavily_search
+from app.services.llm import generate_json
 from app.models.schemas import (
     ProfessorCandidate, ProfessorProfile, PaperInfo,
     EmailSource, FundingStatus, ResultTier,
@@ -41,10 +40,7 @@ async def _fetch_papers_dual_api(
                 year_from=2020,
             )
             if papers_raw:
-                print(f"[A4]   OpenAlex returned {len(papers_raw)} papers for {candidate.name}")
                 return papers_raw
-            else:
-                print(f"[A4]   OpenAlex returned 0 papers for {candidate.name} (ID: {candidate.openalex_id})")
         except Exception as e:
             print(f"[A4]   OpenAlex error for {candidate.name}: {e}")
 
@@ -57,10 +53,7 @@ async def _fetch_papers_dual_api(
                 year_from=2020,
             )
             if papers_raw:
-                print(f"[A4]   SemanticScholar returned {len(papers_raw)} papers for {candidate.name}")
                 return papers_raw
-            else:
-                print(f"[A4]   SemanticScholar returned 0 papers for {candidate.name}")
         except Exception as e:
             print(f"[A4]   SemanticScholar error for {candidate.name}: {e}")
 
@@ -78,8 +71,6 @@ async def _fetch_papers_dual_api(
                     if a.get("name", "").lower() == name_lower:
                         papers_raw.append(w)
                         break
-            if papers_raw:
-                print(f"[A4]   Name-search found {len(papers_raw)} papers for {candidate.name}")
         except Exception as e:
             print(f"[A4]   Name-search error for {candidate.name}: {e}")
 
@@ -93,8 +84,7 @@ async def _llm_score_professor(
     state: SearchState,
     settings,
 ) -> dict:
-    """Use GPT-4o-mini to score the professor on multiple dimensions."""
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
+    """Use GPT-4o-mini or LLaMA fallback to score the professor on multiple dimensions."""
     
     # Build paper summaries for the prompt
     paper_summaries = ""
@@ -124,16 +114,15 @@ async def _llm_score_professor(
     )
     
     try:
-        response = await client.chat.completions.create(
-            model=settings.openai_extraction_model,
-            messages=[
-                {"role": "system", "content": "You are an expert graduate school advisor. Score professor-student fit. Return valid JSON only."},
-                {"role": "user", "content": prompt}
-            ],
-            response_format={"type": "json_object"},
+        messages = [
+            {"role": "system", "content": "You are an expert graduate school advisor. Score professor-student fit. Return valid JSON only."},
+            {"role": "user", "content": prompt}
+        ]
+        result = await generate_json(
+            messages=messages,
             temperature=0.2,
+            force_model=settings.openai_extraction_model
         )
-        result = json.loads(response.choices[0].message.content)
         return {
             "bio_fit": int(result.get("bio_fit", 0)),
             "ml_fit": int(result.get("ml_fit", 0)),
@@ -202,23 +191,21 @@ async def _profile_single_professor(
                     lab_page_url = lab_results[0].get("url", "")
                     lab_page_content = lab_results[0].get("content", "")
 
-                    # Extract info using GPT-4o-mini with CONSERVATIVE prompt
-                    client = AsyncOpenAI(api_key=settings.openai_api_key)
+                    # Extract info using LLM (GPT-4o-mini or LLaMA fallback) with CONSERVATIVE prompt
                     prompt = LAB_PAGE_EXTRACTION_PROMPT.format(
                         professor_name=candidate.name,
                         university=candidate.university,
                         page_content=lab_page_content[:3000],
                     )
-                    response = await client.chat.completions.create(
-                        model=settings.openai_extraction_model,
-                        messages=[
-                            {"role": "system", "content": "Extract information conservatively. Return valid JSON only."},
-                            {"role": "user", "content": prompt}
-                        ],
-                        response_format={"type": "json_object"},
+                    messages = [
+                        {"role": "system", "content": "Extract information conservatively. Return valid JSON only."},
+                        {"role": "user", "content": prompt}
+                    ]
+                    extracted = await generate_json(
+                        messages=messages,
                         temperature=0.0,
+                        force_model=settings.openai_extraction_model
                     )
-                    extracted = json.loads(response.choices[0].message.content)
 
                     email = extracted.get("email")
                     if extracted.get("email_source"):
@@ -249,10 +236,12 @@ async def _profile_single_professor(
             # ── Embedding-based cosine similarity ────────
             cosine_avg_top3 = 0.0
             if papers and paper_texts and student_embedding:
+                # Still uses OpenAI for embeddings as Groq doesn't provide them
                 paper_embeddings = await embed_texts(paper_texts)
                 
                 cosine_scores = []
                 for i, emb in enumerate(paper_embeddings):
+                    from app.services.vector_store import compute_cosine_similarity
                     score = compute_cosine_similarity(student_embedding, emb)
                     papers[i].cosine_score = round(score, 4)
                     cosine_scores.append(score)
@@ -312,8 +301,6 @@ async def _profile_single_professor(
             else:
                 result_tier = ResultTier.TRY_YOUR_LUCK
 
-            print(f"[A4]   {candidate.name}: score={match_score} (llm={llm_overall}, cosine={cosine_avg_top3:.3f}, recency={recency}), tier={result_tier.value}")
-
             # ── Build ProfessorProfile ───────────────────
             return ProfessorProfile(
                 name=candidate.name,
@@ -361,19 +348,12 @@ async def deep_profiler(state: SearchState) -> SearchState:
     if isinstance(state, dict):
         state = SearchState.model_validate(state)
 
-    """
-    A4 — Deep Profiler + Scorer Agent (v2).
-    Runs PARALLEL via asyncio.gather with Semaphore(5) for all candidates.
-    Uses hybrid LLM reasoning + embedding similarity for scoring.
-    """
     if not state.professor_candidates:
-        print("[A4] No professor candidates to profile")
         state.errors.append("A4: No professor candidates found")
-        await state.emit_status("A4", "No professor candidates found. Try different search parameters.", "0/0")
+        await state.emit_status("A4", "No professor candidates found.", "0/0")
         return state
 
     if not state.student_profile:
-        print("[A4] No student profile available")
         state.errors.append("A4: No student profile")
         await state.emit_status("A4", "Error: Student profile missing.", "0/0")
         return state
@@ -383,12 +363,11 @@ async def deep_profiler(state: SearchState) -> SearchState:
 
     await state.emit_status(
         "A4",
-        f"Deep profiling {len(state.professor_candidates)} professors (hybrid LLM + embedding scoring)...",
+        f"Deep profiling {len(state.professor_candidates)} professors (hybrid score)...",
         f"0/{len(state.professor_candidates)}",
     )
 
     # ── Build focused student embedding ──────────────────
-    # Instead of embedding the FULL CV (too broad), embed just the research-relevant parts
     profile = state.student_profile
     research_text_parts = [
         f"Research interests: {', '.join(profile.research_interests)}",
@@ -436,7 +415,6 @@ async def deep_profiler(state: SearchState) -> SearchState:
             )
             profiles.append(fallback)
 
-    # Sort by match score descending
     profiles.sort(key=lambda p: p.match_score, reverse=True)
 
     await state.emit_status(
@@ -446,7 +424,6 @@ async def deep_profiler(state: SearchState) -> SearchState:
     )
 
     top_score = profiles[0].match_score if profiles else 0
-    print(f"[A4] Final: {len(profiles)} profiles, top score: {top_score}")
     await state.emit_agent_output("A4", {"profile_count": len(profiles), "top_score": top_score})
 
     state.professor_profiles = profiles

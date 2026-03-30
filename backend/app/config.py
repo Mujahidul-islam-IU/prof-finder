@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     openai_embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = 1536
 
+    # ── Groq (Fallback LLM) ─────────────────────────────
+    groq_api_key: str = ""
+    groq_model: str = "llama-3.1-70b-versatile"
+
     # ── Tavily ──────────────────────────────────────────
     tavily_api_key: str = ""
 
@@ -71,6 +75,7 @@ def get_settings():
     # This also handles the case where Render's env vars are uppercase
     env_vars_mapping = {
         "OPENAI_API_KEY": "openai_api_key",
+        "GROQ_API_KEY": "groq_api_key",
         "TAVILY_API_KEY": "tavily_api_key",
         "SUPABASE_URL": "supabase_url",
         "SUPABASE_ANON_KEY": "supabase_anon_key",

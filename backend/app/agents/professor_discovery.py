@@ -4,8 +4,9 @@ Hybrid 3-strategy discovery: Web Search + Paper Search + Author Search.
 Finds professors the way a real student would — by searching for labs and PIs.
 """
 
-from openai import AsyncOpenAI
 import json
+from app.config import get_settings
+from app.services.llm import generate_json
 from app.config import get_settings
 from app.agents.state import SearchState
 from app.services import openalex
@@ -42,7 +43,6 @@ def _is_individual_researcher(name: str) -> bool:
 async def _generate_keywords_llm(state: SearchState) -> dict:
     """Generate niche search queries using LLM — both web and academic queries."""
     settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
 
     profile = state.student_profile
     if not profile:
@@ -60,16 +60,14 @@ async def _generate_keywords_llm(state: SearchState) -> dict:
     )
 
     try:
-        response = await client.chat.completions.create(
-            model=settings.openai_extraction_model,
+        data = await generate_json(
             messages=[
                 {"role": "system", "content": "You are a research scout. Return valid JSON only."},
                 {"role": "user", "content": prompt}
             ],
-            response_format={"type": "json_object"},
             temperature=0.7,
+            force_model=settings.openai_extraction_model
         )
-        data = json.loads(response.choices[0].message.content)
         return {
             "web_queries": data.get("web_queries", [state.search_request.target_field]),
             "academic_queries": data.get("academic_queries", data.get("search_queries", [state.search_request.target_field])),
@@ -121,25 +119,20 @@ async def _discover_via_web_search(
         for r in web_results:
             combined_content += f"Title: {r.get('title', '')}\nURL: {r.get('url', '')}\nContent: {r.get('content', '')[:500]}\n\n"
         
-        # Use GPT-4o-mini to extract professor names from web results
-        client = AsyncOpenAI(api_key=settings.openai_api_key)
         prompt = PROFESSOR_EXTRACTION_PROMPT.format(
             target_field=target_field,
             country=country,
             search_results=combined_content[:4000],
         )
-        
-        response = await client.chat.completions.create(
-            model=settings.openai_extraction_model,
+
+        extracted = await generate_json(
             messages=[
                 {"role": "system", "content": "Extract professor names and affiliations. Return valid JSON only."},
                 {"role": "user", "content": prompt}
             ],
-            response_format={"type": "json_object"},
             temperature=0.0,
+            force_model=settings.openai_extraction_model
         )
-        
-        extracted = json.loads(response.choices[0].message.content)
         professors = extracted.get("professors", [])
         
         for prof in professors:

@@ -6,9 +6,8 @@ Writes verified data to Supabase. Streams each verified professor via SSE.
 
 import json
 from datetime import datetime, timezone, date, timedelta
-import httpx
-from openai import AsyncOpenAI
 from app.config import get_settings
+from app.services.llm import generate_json
 from app.agents.state import SearchState
 from app.services import tavily_search, supabase_client
 from app.models.schemas import (
@@ -98,25 +97,17 @@ async def _fetch_requirements(
         web_content += f"Source: {r.get('url', '')}\n{r.get('content', '')}\n\n"
 
     # Extract with GPT-4o-mini
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-    prompt = REQUIREMENTS_EXTRACTION_PROMPT.format(
-        university=university,
-        department=department,
-        degree_type=degree_type,
-        web_content=web_content[:3000],
-    )
+    messages=[
+        {"role": "system", "content": "Extract admission requirements precisely. Return valid JSON only."},
+        {"role": "user", "content": prompt}
+    ]
 
     try:
-        response = await client.chat.completions.create(
-            model=settings.openai_extraction_model,
-            messages=[
-                {"role": "system", "content": "Extract admission requirements precisely. Return valid JSON only."},
-                {"role": "user", "content": prompt}
-            ],
-            response_format={"type": "json_object"},
+        extracted = await generate_json(
+            messages=messages,
             temperature=0.0,
+            force_model=settings.openai_extraction_model
         )
-        extracted = json.loads(response.choices[0].message.content)
 
         req = ProgramRequirements(
             university=university,

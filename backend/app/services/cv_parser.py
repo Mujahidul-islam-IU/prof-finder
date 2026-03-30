@@ -7,7 +7,7 @@ Uses GPT-4o-mini to structure the extracted text into a StudentProfile.
 import fitz  # PyMuPDF
 from docx import Document
 from pathlib import Path
-from openai import AsyncOpenAI
+from app.services.llm import generate_json
 import json
 from app.config import get_settings
 from app.models.schemas import StudentProfile
@@ -124,20 +124,11 @@ CV TEXT:
 
 async def parse_cv_with_llm(cv_text: str) -> StudentProfile:
     """Use GPT-4o-mini to extract structured profile from CV text."""
-    settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-
-    response = await client.chat.completions.create(
-        model=settings.openai_extraction_model,
-        messages=[
-            {"role": "system", "content": "You are a precise CV parser. Return valid JSON only."},
-            {"role": "user", "content": PROFILE_EXTRACTION_PROMPT + cv_text}
-        ],
-        response_format={"type": "json_object"},
-        temperature=0.0,
-    )
-
-    parsed = json.loads(response.choices[0].message.content)
+    messages = [
+        {"role": "system", "content": "You are a precise CV parser. Return valid JSON only."},
+        {"role": "user", "content": PROFILE_EXTRACTION_PROMPT + cv_text}
+    ]
+    parsed = await generate_json(messages, temperature=0.0)
 
     # Build profile
     profile = StudentProfile(

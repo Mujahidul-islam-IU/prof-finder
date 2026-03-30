@@ -5,8 +5,8 @@ Dimensions: Funding 30%, Admission 25%, Work Rights 20%, Visa 15%, Language 10%.
 """
 
 import json
-from openai import AsyncOpenAI
 from app.config import get_settings
+from app.services.llm import generate_json
 from app.agents.state import SearchState
 from app.services import tavily_search
 from app.services import supabase_client
@@ -47,9 +47,8 @@ async def country_ranker(state: SearchState) -> SearchState:
 
     await state.emit_status("A2", "Analyzing and ranking countries...", "2/3")
 
-    # ── Step 2: GPT-4o reasoning for ranking ─────────────
+    # ── Step 2: GPT-4o/LLaMA reasoning for ranking ─────────────
     settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
 
     prompt = COUNTRY_RANKING_PROMPT.format(
         degree_type=state.search_request.degree_type.value,
@@ -62,23 +61,19 @@ async def country_ranker(state: SearchState) -> SearchState:
         search_results=combined_results[:4000],  # Cap context
     )
 
-    response = await client.chat.completions.create(
-        model=settings.openai_reasoning_model,  # GPT-4o for complex reasoning
-        messages=[
-            {"role": "system", "content": "You are a expert graduate school advisor. Return a JSON object with a key 'rankings' containing an array of country rankings."},
-            {"role": "user", "content": prompt}
-        ],
-        response_format={"type": "json_object"},
-        temperature=0.3,
-    )
-
-    content = response.choices[0].message.content
-    print(f"[A2] GPT Response: {content[:500]}...") # Debug log
+    messages=[
+        {"role": "system", "content": "You are a expert graduate school advisor. Return a JSON object with a key 'rankings' containing an array of country rankings."},
+        {"role": "user", "content": prompt}
+    ]
     
     try:
-        raw = json.loads(content)
-    except json.JSONDecodeError as e:
-        print(f"[A2] JSON Decode Error: {e}")
+        raw = await generate_json(
+            messages=messages, 
+            temperature=0.3, 
+            force_model=settings.openai_reasoning_model
+        )
+    except Exception as e:
+        print(f"[A2] LLM Error: {e}")
         raw = {}
 
     # Handle various possible JSON structures

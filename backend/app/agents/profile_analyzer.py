@@ -5,8 +5,8 @@ Parses CV, normalizes GPA, embeds profile, cross-checks publications, classifies
 
 import json
 import uuid
-from openai import AsyncOpenAI
 from app.config import get_settings
+from app.services.llm import generate_json
 from app.agents.state import SearchState
 from app.services.cv_parser import parse_cv
 from app.services.embedding import embed_text
@@ -102,7 +102,6 @@ async def profile_analyzer(state: SearchState) -> SearchState:
 
     # ── Step 5: Classify tier ────────────────────────────
     settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
 
     prompt = TIER_CLASSIFICATION_PROMPT.format(
         gpa_normalized=profile.gpa_normalized or "N/A",
@@ -119,17 +118,12 @@ async def profile_analyzer(state: SearchState) -> SearchState:
         work_experience=profile.work_experience[:500],
     )
 
-    response = await client.chat.completions.create(
-        model=settings.openai_extraction_model,  # GPT-4o-mini for extraction
-        messages=[
-            {"role": "system", "content": "You are an academic admissions advisor. Return valid JSON only."},
-            {"role": "user", "content": prompt}
-        ],
-        response_format={"type": "json_object"},
-        temperature=0.1,
-    )
-
-    tier_result = json.loads(response.choices[0].message.content)
+    messages=[
+        {"role": "system", "content": "You are an academic admissions advisor. Return valid JSON only."},
+        {"role": "user", "content": prompt}
+    ]
+    
+    tier_result = await generate_json(messages, temperature=0.1)
     from app.models.schemas import StudentTier
     profile.tier = StudentTier(tier_result.get("tier", "B"))
 
