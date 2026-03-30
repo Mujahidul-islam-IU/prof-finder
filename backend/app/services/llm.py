@@ -66,6 +66,8 @@ async def generate_json(
             
     # ── 3. No Keys Configured ──
     if "e" in locals():  # If it failed from OpenAI earlier
-        raise ValueError(f"OpenAI Failed and no Groq fallback could be used: {e}")
+        final_err = f"OpenAI Failed ({settings.openai_extraction_model}): {e}. No Groq key found to try fallback."
+        print(f"[LLM] CRITICAL: {final_err}")
+        raise ValueError(final_err)
     else:
         raise ValueError("Missing LLM API Keys! Please configure either OPENAI_API_KEY or GROQ_API_KEY.")

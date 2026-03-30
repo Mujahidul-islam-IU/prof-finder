@@ -4,6 +4,7 @@ Reads all configuration from environment variables via pydantic-settings.
 """
 
 import os
+from typing import Any
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
@@ -14,7 +15,7 @@ class Settings(BaseSettings):
     # ── App ─────────────────────────────────────────────
     jwt_secret: str = "local_super_secret_prof_finder_key"
     debug: bool = False
-    cors_origins: list[str] = ["https://prof-finder.vercel.app", "https://prof-finder.vercel.app/"]
+    cors_origins: Any = ["https://prof-finder.vercel.app"]
 
     # ── OpenAI ──────────────────────────────────────────
     openai_api_key: str = ""

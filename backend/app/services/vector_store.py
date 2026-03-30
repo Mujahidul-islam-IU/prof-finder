@@ -1,7 +1,14 @@
-"""
-ProfFinder — ChromaDB Vector Store Service
-Persistent local vector store for student profiles and paper embeddings.
-"""
+import sys
+
+# ── Render/Linux SQLite Fix for ChromaDB ──────────────────
+# ChromaDB requires SQLite 3.35+. Render/Ubuntu 20.04 uses 3.31.
+# We use pysqlite3-binary as a drop-in replacement.
+try:
+    __import__("pysqlite3")
+    import sys
+    sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
+except ImportError:
+    pass
 
 import chromadb
 from app.config import get_settings
