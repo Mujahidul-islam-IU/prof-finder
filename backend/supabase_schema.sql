@@ -6,9 +6,20 @@
 -- Enable UUID generation
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- ── Users (Permanent Auth Data) ──────────────────────────────
+CREATE TABLE IF NOT EXISTS users (
+    id             TEXT PRIMARY KEY,
+    email          TEXT UNIQUE NOT NULL,
+    name           TEXT NOT NULL,
+    password_hash  TEXT NOT NULL,
+    role           TEXT DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+    created_at     TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ── Search Sessions ────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS search_sessions (
     session_id     UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id        TEXT REFERENCES users(id) ON DELETE SET NULL,
     student_name   TEXT,
     target_field   TEXT NOT NULL,
     degree_type    TEXT NOT NULL CHECK (degree_type IN ('MSc', 'PhD')),
